@@ -153,12 +153,14 @@ local function start_server()
             local extension = config.values.commands[source].extension
             vim.fn.execute(string.format('edit %s.%s | write', testcase_class_snake, extension))
 
-            if not config.values.commands[source].template then
-              return
+            if data.srcCode and #data.srcCode > 0 then
+              local lines = vim.split(data.srcCode, '\n')
+              vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+              utils.info('populating with code from problem page')
+            elseif config.values.commands[source].template then
+              utils.info('populating with ' .. config.values.commands[source].template)
+              vim.fn.execute(string.format('0read %s', config.values.commands[source].template))
             end
-
-            utils.info('populating with ' .. config.values.commands[source].template)
-            vim.fn.execute(string.format('0read %s', config.values.commands[source].template))
           end)
         end)
       end)

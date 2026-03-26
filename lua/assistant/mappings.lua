@@ -24,6 +24,7 @@ mappings.default_mappings = {
       ['c'] = actions.create_new_testcase,
       ['d'] = actions.remove_testcases,
       ['e'] = actions.patch_testcase,
+      ['y'] = actions.copy_solution,
       ['<C-l>'] = actions.focus_previewer,
     },
   },

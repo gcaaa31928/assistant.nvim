@@ -193,6 +193,41 @@ function actions.patch_testcase()
   state.get_local_key('status').picker = 'Picking(field)'
 end
 
+function actions.copy_solution()
+  local filename = state.get_local_key 'filename'
+  local extension = state.get_local_key 'extension'
+  local filepath = string.format('%s.%s', filename, extension)
+  local bufnr = vim.fn.bufnr(filepath)
+
+  if bufnr == -1 then
+    utils.err('Buffer not found: ' .. filepath)
+    return
+  end
+
+  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+  local result = {}
+  local in_solution = false
+
+  for _, line in ipairs(lines) do
+    if line:match('^class Solution') then
+      in_solution = true
+    end
+    if in_solution then
+      table.insert(result, line)
+    end
+    if in_solution and line:match('^};') then
+      break
+    end
+  end
+
+  if #result > 0 then
+    vim.fn.setreg('+', table.concat(result, '\n'))
+    utils.info 'Solution copied to clipboard!'
+  else
+    utils.warn 'No Solution class found'
+  end
+end
+
 function actions.which_key()
   local text = Text.new {}
   local mappings = require('assistant.mappings').default_mappings

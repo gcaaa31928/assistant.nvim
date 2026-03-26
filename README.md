@@ -117,6 +117,98 @@
 
 <br>
 
+## LeetCode 整合
+
+Assistant.nvim 搭配自訂的 [Competitive Companion](https://github.com/jmerle/competitive-companion) LeetCode parser，提供完整的本地測試流程。
+
+### 運作原理
+
+1. Competitive Companion 的 LeetCode parser 從題目頁面擷取測試資料和函式簽名
+2. 當收到的資料包含 `srcCode` 欄位時，assistant.nvim 會用它來填入原始碼，取代靜態 template
+3. Parser 會自動產生 `main()` 函式，從 stdin 讀取參數並呼叫 Solution 方法，不需手動寫樣板程式碼
+
+### 設定
+
+1. **安裝自訂的 Competitive Companion**（含 LeetCode 支援）並建置擴充套件
+2. **建立 IO 輔助標頭檔** (`leetcode_io.h`)，放在你的工作目錄中，提供 `lc_read()` 和 `lc_print()` 來處理常見的 LeetCode 型別（`vector`、`string`、`int` 等）
+3. **設定 assistant.nvim** 使用 GNU g++（macOS 的 clang 不支援 `bits/stdc++.h`）：
+
+```lua
+{
+    'A7lavinraj/assistant.nvim',
+    lazy = false,
+    keys = {
+        { '<leader>a', '<cmd>Assistant<cr>', desc = 'Assistant.nvim' },
+    },
+    opts = {
+        commands = {
+            cpp = {
+                extension = 'cpp',
+                compile = {
+                    main = 'g++-13',  -- 使用 GNU g++，不要用 Apple clang
+                    args = { '-std=c++17', '-O2', '$FILENAME_WITH_EXTENSION', '-o', '$FILENAME_WITHOUT_EXTENSION' },
+                },
+                execute = {
+                    main = './$FILENAME_WITHOUT_EXTENSION',
+                    args = nil,
+                },
+                template = vim.fn.stdpath('config') .. '/templates/leetcode.cpp',
+            },
+        },
+    },
+}
+```
+
+### 使用流程
+
+1. 在你的 leetcode 工作目錄（`leetcode_io.h` 所在位置）開啟 Neovim
+2. 執行 `:AssistantTCPStart` 開始監聽
+3. 在瀏覽器開啟 LeetCode 題目，點擊 Competitive Companion 按鈕
+4. 在選擇器中選 `cpp` — 自動建立 `.cpp` 檔案，內含 Solution class 和自動產生的 `main()`
+5. 在 Solution class 中寫你的解法
+6. `<leader>a` 開啟 Assistant 面板，按 `r` 執行測試
+7. 在面板中按 `y` 複製 Solution class 到剪貼簿，直接貼到 LeetCode 提交
+
+### 面板快捷鍵
+
+| 鍵 | 功能 |
+|-----|--------|
+| `r` | 執行測試案例 |
+| `y` | 複製 Solution class 到剪貼簿 |
+| `s` | 選取/取消選取當前測試案例 |
+| `a` | 全選/全取消 |
+| `c` | 新增測試案例 |
+| `d` | 刪除測試案例 |
+| `e` | 編輯測試案例 |
+| `i` | 互動模式執行 |
+| `?` | 顯示所有快捷鍵 |
+| `q` | 關閉面板 |
+
+### 產生的程式碼結構
+
+```cpp
+#include <bits/stdc++.h>
+using namespace std;
+#include "leetcode_io.h"
+
+class Solution {                // <-- 提交時複製這段
+public:
+    int example(vector<int>& nums) {
+        // 你的解法
+    }
+};                              // <-- 複製到這裡
+
+int main() {                    // 自動產生，僅用於本地測試
+    Solution sol;
+    vector<int> nums;
+    lc_read(nums);
+    lc_print(sol.example(nums));
+    return 0;
+}
+```
+
+<br>
+
 <h4 align="center">
   <span>Explore more about assistant on</span>
   <a href="https://github.com/A7Lavinraj/assistant.nvim/wiki">Wiki</a>
