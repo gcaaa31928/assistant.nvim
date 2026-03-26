@@ -130,8 +130,9 @@ Assistant.nvim 搭配自訂的 [Competitive Companion](https://github.com/jmerle
 ### 設定
 
 1. **安裝自訂的 Competitive Companion**（含 LeetCode 支援）並建置擴充套件
-2. **建立 IO 輔助標頭檔** (`leetcode_io.h`)，放在你的工作目錄中，提供 `lc_read()` 和 `lc_print()` 來處理常見的 LeetCode 型別（`vector`、`string`、`int` 等）
-3. **設定 assistant.nvim** 使用 GNU g++（macOS 的 clang 不支援 `bits/stdc++.h`）：
+2. **設定 assistant.nvim** 使用 GNU g++（macOS 的 clang 不支援 `bits/stdc++.h`）：
+
+> **Note:** `leetcode_io.h`（提供 `lc_read()` / `lc_print()`）已內建於 plugin 中，編譯時會自動加入 include 路徑，不需手動建立。
 
 ```lua
 {
@@ -161,7 +162,7 @@ Assistant.nvim 搭配自訂的 [Competitive Companion](https://github.com/jmerle
 
 ### 使用流程
 
-1. 在你的 leetcode 工作目錄（`leetcode_io.h` 所在位置）開啟 Neovim
+1. 在你的 leetcode 工作目錄開啟 Neovim
 2. 執行 `:AssistantTCPStart` 開始監聽
 3. 在瀏覽器開啟 LeetCode 題目，點擊 Competitive Companion 按鈕
 4. 在選擇器中選 `cpp` — 自動建立 `.cpp` 檔案，內含 Solution class 和自動產生的 `main()`

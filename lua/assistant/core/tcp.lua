@@ -154,7 +154,16 @@ local function start_server()
             vim.fn.execute(string.format('edit %s.%s | write', testcase_class_snake, extension))
 
             if data.srcCode and #data.srcCode > 0 then
-              local lines = vim.split(data.srcCode, '\n')
+              -- replace all Unicode whitespace characters with regular spaces
+              local code = data.srcCode
+                :gsub('\xc2\xa0', ' ')       -- U+00A0 non-breaking space
+                :gsub('\xe2\x80[\x80-\x8a]', ' ') -- U+2000–U+200A various spaces
+                :gsub('\xe2\x80\xaf', ' ')   -- U+202F narrow no-break space
+                :gsub('\xe2\x81\x9f', ' ')   -- U+205F medium mathematical space
+                :gsub('\xe3\x80\x80', ' ')   -- U+3000 ideographic space
+                :gsub('\xef\xbb\xbf', '')    -- U+FEFF BOM / zero-width no-break space
+                :gsub('\xe2\x80\x8b', '')    -- U+200B zero-width space
+              local lines = vim.split(code, '\n')
               vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
               utils.info('populating with code from problem page')
             elseif config.values.commands[source].template then

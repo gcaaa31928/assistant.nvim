@@ -211,6 +211,13 @@ function utils.get_source_config()
     for i = 1, #command.compile.args do
       command.compile.args[i] = format(command.compile.args[i])
     end
+
+    -- auto-inject plugin's include/ directory so bundled headers (e.g. leetcode_io.h) are found
+    local plugin_dir = vim.fn.fnamemodify(debug.getinfo(1, 'S').source:sub(2), ':h:h:h')
+    local include_dir = plugin_dir .. '/include'
+    if vim.fn.isdirectory(include_dir) == 1 then
+      table.insert(command.compile.args, '-I' .. include_dir)
+    end
   end
 
   if command.execute then
