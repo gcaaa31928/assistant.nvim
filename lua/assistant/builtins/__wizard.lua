@@ -143,6 +143,21 @@ wizard.standard = Wizard.new {
           end
         end
 
+        -- show debug output from /tmp/assistant_dbg.log
+        local dbg_file = io.open('/tmp/assistant_dbg.log', 'r')
+        if dbg_file then
+          local dbg_content = dbg_file:read '*a'
+          dbg_file:close()
+          if #dbg_content > 0 then
+            text:nl():append('Debug', 'AssistantHeading'):nl(2)
+            for _, line in ipairs(utils.slice_first_n_lines(dbg_content, 100)) do
+              if line then
+                text:append(line, 'AssistantParagraph'):nl()
+              end
+            end
+          end
+        end
+
         text:render(bufnr)
       end,
     },

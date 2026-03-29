@@ -196,4 +196,162 @@ inline void lc_print(const std::vector<T>& v) {
   std::cout << std::endl;
 }
 
+// ── debug macro ─────────────────────────────────────────────────────────────
+// Active only when compiled with -DLOCAL (auto-injected by assistant.nvim).
+// Usage: dbg(x) prints "x = <value>" to /tmp/assistant_dbg.log.
+// Completely bypasses stdout/stderr so it won't affect test results.
+
+#ifdef LOCAL
+#include <cstdio>
+#include <type_traits>
+
+namespace _lc {
+inline FILE* _dbg_file() {
+  static FILE* f = fopen("/tmp/assistant_dbg.log", "w");
+  return f;
+}
+
+// trait: iterable container (has begin/end) but not std::string
+template <typename T, typename = void>
+struct _is_container : std::false_type {};
+template <typename T>
+struct _is_container<T, std::void_t<
+  decltype(std::begin(std::declval<const T&>())),
+  decltype(std::end(std::declval<const T&>()))
+>> : std::conditional_t<std::is_same_v<std::decay_t<T>, std::string>, std::false_type, std::true_type> {};
+
+// ── _dbg_pr: single dispatch point (struct with overloaded operator()) ──────
+struct _dbg_pr {
+  // ── primitives ────────────────────────────────────────────────────────────
+  void operator()(FILE* f, int v) const { fprintf(f, "%d", v); }
+  void operator()(FILE* f, long long v) const { fprintf(f, "%lld", v); }
+  void operator()(FILE* f, unsigned v) const { fprintf(f, "%u", v); }
+  void operator()(FILE* f, unsigned long long v) const { fprintf(f, "%llu", v); }
+  void operator()(FILE* f, double v) const { fprintf(f, "%g", v); }
+  void operator()(FILE* f, float v) const { fprintf(f, "%g", (double)v); }
+  void operator()(FILE* f, bool v) const { fprintf(f, "%s", v ? "true" : "false"); }
+  void operator()(FILE* f, char v) const { fprintf(f, "'%c'", v); }
+  void operator()(FILE* f, const char* v) const { fprintf(f, "\"%s\"", v); }
+  void operator()(FILE* f, const std::string& v) const { fprintf(f, "\"%s\"", v.c_str()); }
+
+  // ── pair ──────────────────────────────────────────────────────────────────
+  template <typename A, typename B>
+  void operator()(FILE* f, const std::pair<A, B>& p) const {
+    fprintf(f, "(");
+    (*this)(f, p.first);
+    fprintf(f, ", ");
+    (*this)(f, p.second);
+    fprintf(f, ")");
+  }
+
+  // ── tuple ─────────────────────────────────────────────────────────────────
+  template <typename Tuple, size_t... Is>
+  void print_tuple(FILE* f, const Tuple& t, std::index_sequence<Is...>) const {
+    ((Is == 0 ? (void)0 : (void)fprintf(f, ", "), (*this)(f, std::get<Is>(t))), ...);
+  }
+  template <typename... Args>
+  void operator()(FILE* f, const std::tuple<Args...>& t) const {
+    fprintf(f, "(");
+    print_tuple(f, t, std::index_sequence_for<Args...>{});
+    fprintf(f, ")");
+  }
+
+  // ── optional ──────────────────────────────────────────────────────────────
+  template <typename T>
+  void operator()(FILE* f, const std::optional<T>& v) const {
+    if (v.has_value()) (*this)(f, *v);
+    else fprintf(f, "nullopt");
+  }
+
+  // ── stack ─────────────────────────────────────────────────────────────────
+  template <typename T, typename C>
+  void operator()(FILE* f, std::stack<T, C> s) const {
+    fprintf(f, "{");
+    bool first = true;
+    while (!s.empty()) {
+      if (!first) fprintf(f, ", ");
+      (*this)(f, s.top());
+      s.pop();
+      first = false;
+    }
+    fprintf(f, "}");
+  }
+
+  // ── queue ─────────────────────────────────────────────────────────────────
+  template <typename T, typename C>
+  void operator()(FILE* f, std::queue<T, C> q) const {
+    fprintf(f, "{");
+    bool first = true;
+    while (!q.empty()) {
+      if (!first) fprintf(f, ", ");
+      (*this)(f, q.front());
+      q.pop();
+      first = false;
+    }
+    fprintf(f, "}");
+  }
+
+  // ── priority_queue ────────────────────────────────────────────────────────
+  template <typename T, typename C, typename Cmp>
+  void operator()(FILE* f, std::priority_queue<T, C, Cmp> pq) const {
+    fprintf(f, "{");
+    bool first = true;
+    while (!pq.empty()) {
+      if (!first) fprintf(f, ", ");
+      (*this)(f, pq.top());
+      pq.pop();
+      first = false;
+    }
+    fprintf(f, "}");
+  }
+
+  // ── bitset ────────────────────────────────────────────────────────────────
+  template <size_t N>
+  void operator()(FILE* f, const std::bitset<N>& b) const {
+    auto s = b.to_string();
+    fprintf(f, "%s", s.c_str());
+  }
+
+  // ── generic iterable container (vector, set, map, deque, list, array…) ──
+  template <typename T>
+  std::enable_if_t<_is_container<std::decay_t<T>>::value>
+  operator()(FILE* f, const T& v) const {
+    fprintf(f, "{");
+    bool first = true;
+    for (const auto& elem : v) {
+      if (!first) fprintf(f, ", ");
+      (*this)(f, elem);
+      first = false;
+    }
+    fprintf(f, "}");
+  }
+};
+
+inline constexpr _dbg_pr _dbg_p{};
+
+// ── dbg_out (variadic name=value printer) ───────────────────────────────────
+inline void _dbg_out(FILE* f) { fprintf(f, "\n"); fflush(f); }
+template <typename T, typename... Args>
+inline void _dbg_out(FILE* f, const char* name, T&& val, Args&&... args) {
+  const char* comma = name;
+  while (*comma && *comma != ',') ++comma;
+  fwrite(name, 1, comma - name, f);
+  fprintf(f, " = ");
+  _dbg_p(f, std::forward<T>(val));
+  if constexpr (sizeof...(args) > 0) {
+    fprintf(f, ", ");
+    ++comma;
+    while (*comma == ' ') ++comma;
+    _dbg_out(f, comma, std::forward<Args>(args)...);
+  } else {
+    fprintf(f, "\n");
+    fflush(f);
+  }
+}
+} // namespace _lc
+#define dbg(...) do { FILE* _f = _lc::_dbg_file(); fprintf(_f, "[DBG] "); _lc::_dbg_out(_f, #__VA_ARGS__, __VA_ARGS__); } while(0)
+#else
+#define dbg(...)
+#endif
+
 #endif // LEETCODE_IO_H

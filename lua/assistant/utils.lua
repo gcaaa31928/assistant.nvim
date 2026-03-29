@@ -218,6 +218,9 @@ function utils.get_source_config()
     if vim.fn.isdirectory(include_dir) == 1 then
       table.insert(command.compile.args, '-I' .. include_dir)
     end
+
+    -- define LOCAL so debug macros in leetcode_io.h are active during local testing
+    table.insert(command.compile.args, '-DLOCAL')
   end
 
   if command.execute then
